@@ -16,6 +16,7 @@
 // calls to a tag for the same literal, so we can cache work done per literal
 // in a Map.
 const templates = new Map<TemplateStringsArray, Template>();
+const svgTemplates = new Map<TemplateStringsArray, Template>();
 
 /**
  * Interprets a template literal as an HTML template that can efficiently
@@ -26,6 +27,15 @@ export function html(strings: TemplateStringsArray, ...values: any[]): TemplateR
   if (template === undefined) {
     template = new Template(strings);
     templates.set(strings, template);
+  }
+  return new TemplateResult(template, values);
+}
+
+export function svg(strings: TemplateStringsArray, ...values: any[]): TemplateResult {
+  let template = svgTemplates.get(strings);
+  if (template === undefined) {
+    template = new Template(strings, true);
+    svgTemplates.set(strings, template);
   }
   return new TemplateResult(template, values);
 }
@@ -107,15 +117,17 @@ export class Template {
   private _strings: TemplateStringsArray;
   parts: TemplatePart[] = [];
   element: HTMLTemplateElement;
+  svg: boolean
 
-  constructor(strings: TemplateStringsArray) {
+  constructor(strings: TemplateStringsArray, svg: boolean = false) {
+    this.svg = svg;
     this._strings = strings;
     this._parse();
   }
 
   private _parse() {
     this.element = document.createElement('template');
-    this.element.innerHTML = this._getHtml(this._strings);
+    this.element.innerHTML = this._getHtml(this._strings, this.svg);
     const walker = document.createTreeWalker(this.element.content, 5 /* elements & text */);
     let index = -1;
     let partIndex = 0;
@@ -177,14 +189,19 @@ export class Template {
     }
   }
 
-  private _getHtml(strings: TemplateStringsArray): string {
+  /**
+   * Returns a string of HTML used to create a <template> element.
+   */
+  private _getHtml(strings: TemplateStringsArray, svg?: boolean): string {
     const parts = [];
+    if (svg) { parts.push('<svg>')}
     for (let i = 0; i < strings.length; i++) {
       parts.push(strings[i]);
       if (i < strings.length - 1) {
         parts.push(exprMarker);
       }
     }
+    if (svg) { parts.push('</svg>')}
     return parts.join('');
   }
 
@@ -475,6 +492,14 @@ export class TemplateInstance {
           index++;
           node = walker.nextNode();
         }
+      }
+    }
+    if (this.template.svg) {
+      const svgElement = fragment.firstChild!;
+      fragment.removeChild(svgElement);
+      const nodes = svgElement.childNodes;
+      for (let i = 0; i < nodes.length; i++) {
+        fragment.appendChild(nodes.item(i));
       }
     }
     return fragment;
