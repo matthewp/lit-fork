@@ -1,52 +1,19 @@
-/**
- * @license
- * Copyright (c) 2017 The Polymer Project Authors. All rights reserved.
- * This code may only be used under the BSD style license found at
- * http://polymer.github.io/LICENSE.txt
- * The complete set of authors may be found at
- * http://polymer.github.io/AUTHORS.txt
- * The complete set of contributors may be found at
- * http://polymer.github.io/CONTRIBUTORS.txt
- * Code distributed by Google as part of the polymer project is also
- * subject to an additional IP rights grant found at
- * http://polymer.github.io/PATENTS.txt
- */
+import {HTMLTemplateResult} from './html-template-result.js';
+import {TemplatePart} from './template.js';
 
-/**
- * @module lit-html
- */
+const marker = /{{(.+)}}/g;
+export const createMarker = () => document.createComment('');
 
-import {TemplateResult} from './template-result.js';
-
-/**
- * An expression marker with embedded unique key to avoid collision with
- * possible text in templates.
- */
-export const marker = `{{lit-${String(Math.random()).slice(2)}}}`;
-
-/**
- * An expression marker used text-positions, multi-binding attributes, and
- * attributes with markup-like text values.
- */
-export const nodeMarker = `<!--${marker}-->`;
-
-export const markerRegex = new RegExp(`${marker}|${nodeMarker}`);
-
-/**
- * Suffix appended to all bound attribute names.
- */
-export const boundAttributeSuffix = '$lit$';
-
-/**
- * An updateable Template that tracks the location of dynamic parts.
- */
-export class Template {
+export class HTMLTemplate {
   parts: TemplatePart[] = [];
   element: HTMLTemplateElement;
 
-  constructor(result: TemplateResult, element: HTMLTemplateElement) {
+  constructor(element: HTMLTemplateElement) {
     this.element = element;
+    this._traverse(element);
+  }
 
+  _traverse(element: HTMLTemplateElement): void {
     const nodesToRemove: Node[] = [];
     const stack: Node[] = [];
     // Edge needs all 4 parameters present; IE11 needs 3rd parameter to be null
@@ -87,7 +54,8 @@ export class Template {
           // assume a correspondance between part index and attribute index.
           let count = 0;
           for (let i = 0; i < length; i++) {
-            if (attributes[i].value.indexOf(marker) >= 0) {
+            //if (attributes[i].value.indexOf(marker) >= 0) {
+            if (marker.test(attributes[i].value)) {
               count++;
             }
           }
@@ -118,19 +86,32 @@ export class Template {
         }
       } else if (node.nodeType === 3 /* Node.TEXT_NODE */) {
         const data = (node as Text).data;
-        if (data.indexOf(marker) >= 0) {
+        //if (data.indexOf(marker) >= 0) {
+        if(marker.test(data)) {
           const parent = node.parentNode!;
-          const strings = data.split(markerRegex);
+          const strings = data.split(marker);
           const lastIndex = strings.length - 1;
-          // Generate a new text node for each literal section
-          // These nodes are also used as the markers for node parts
-          for (let i = 0; i < lastIndex; i++) {
-            parent.insertBefore(
-                (strings[i] === '') ? createMarker() :
-                                      document.createTextNode(strings[i]),
+          const exprs = [];
+          marker.lastIndex = 0;
+          let res: any;
+          let i = 0;
+          let strIndex = 0;
+          while(res = marker.exec(data)) {
+            if(res.index > strIndex) {
+              let strPart = data.substr(strIndex, res.index - strIndex);
+
+              parent.insertBefore(
+                (strPart === '') ? createMarker() :
+                                      document.createTextNode(strPart),
                 node);
-            this.parts.push({type: 'node', index: ++index});
+              this.parts.push({type: 'node', index: ++index });
+              i++;
+            }
+
+            parent.insertBefore(createMarker(), node);
+            this.parts.push({type: 'node', index: ++index, expr: res[1] });
           }
+
           // If there's no text, we must insert a comment to mark our place.
           // Else, we can trust it will stick around after cloning.
           if (strings[lastIndex] === '') {
@@ -182,60 +163,8 @@ export class Template {
       n.parentNode!.removeChild(n);
     }
   }
+
+  update(data: object): HTMLTemplateResult {
+    return new HTMLTemplateResult(this, data);
+  }
 }
-
-/**
- * A placeholder for a dynamic expression in an HTML template.
- *
- * There are two built-in part types: AttributePart and NodePart. NodeParts
- * always represent a single dynamic expression, while AttributeParts may
- * represent as many expressions are contained in the attribute.
- *
- * A Template's parts are mutable, so parts can be replaced or modified
- * (possibly to implement different template semantics). The contract is that
- * parts can only be replaced, not removed, added or reordered, and parts must
- * always consume the correct number of values in their `update()` method.
- *
- * TODO(justinfagnani): That requirement is a little fragile. A
- * TemplateInstance could instead be more careful about which values it gives
- * to Part.update().
- */
-export type TemplatePart = {
-  type: 'node',
-  index: number,
-  expr?: string
-}|{type: 'attribute', index: number, name: string, strings: string[]};
-
-export const isTemplatePartActive = (part: TemplatePart) => part.index !== -1;
-
-// Allows `document.createComment('')` to be renamed for a
-// small manual size-savings.
-export const createMarker = () => document.createComment('');
-
-/**
- * This regex extracts the attribute name preceding an attribute-position
- * expression. It does this by matching the syntax allowed for attributes
- * against the string literal directly preceding the expression, assuming that
- * the expression is in an attribute-value position.
- *
- * See attributes in the HTML spec:
- * https://www.w3.org/TR/html5/syntax.html#attributes-0
- *
- * "\0-\x1F\x7F-\x9F" are Unicode control characters
- *
- * " \x09\x0a\x0c\x0d" are HTML space characters:
- * https://www.w3.org/TR/html5/infrastructure.html#space-character
- *
- * So an attribute is:
- *  * The name: any character except a control character, space character, ('),
- *    ("), ">", "=", or "/"
- *  * Followed by zero or more space characters
- *  * Followed by "="
- *  * Followed by zero or more space characters
- *  * Followed by:
- *    * Any character except space, ('), ("), "<", ">", "=", (`), or
- *    * (") then any non-("), or
- *    * (') then any non-(')
- */
-export const lastAttributeNameRegex =
-    /([ \x09\x0a\x0c\x0d])([^\0-\x1F\x7F-\x9F \x09\x0a\x0c\x0d"'>=/]+)([ \x09\x0a\x0c\x0d]*=[ \x09\x0a\x0c\x0d]*(?:[^ \x09\x0a\x0c\x0d"'`<>=]*|"[^"]*|'[^']*))$/;

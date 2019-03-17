@@ -104,9 +104,10 @@ export class TemplateInstance {
 
       // We've arrived at our part's node.
       if (part.type === 'node') {
-        const part = this.processor.handleTextExpression(this.options);
-        part.insertAfterNode(node!.previousSibling!);
-        this._parts.push(part);
+        const nodePart = this.processor.handleTextExpression(this.options);
+        nodePart.expr = part.expr;
+        nodePart.insertAfterNode(node!.previousSibling!);
+        this._parts.push(nodePart);
       } else {
         this._parts.push(...this.processor.handleAttributeExpressions(
             node as Element, part.name, part.strings, this.options));

@@ -42,16 +42,20 @@ export {AttributeCommitter, AttributePart, BooleanAttributePart, EventPart, isIt
 export {RenderOptions} from './lib/render-options.js';
 export {parts, render} from './lib/render.js';
 export {templateCaches, templateFactory} from './lib/template-factory.js';
+export {templateFactory as htmlTemplateFactory} from './lib/html-template-factory.js';
 export {TemplateInstance} from './lib/template-instance.js';
 export {TemplateProcessor} from './lib/template-processor.js';
 export {SVGTemplateResult, TemplateResult} from './lib/template-result.js';
 export {createMarker, isTemplatePartActive, Template} from './lib/template.js';
+export {HTMLTemplate} from './lib/html-template.js';
 
 declare global {
   interface Window {
     litHtmlVersions: string[];
   }
 }
+
+// HTMLTemplate
 
 // IMPORTANT: do not change the property name or the assignment expression.
 // This line will be used in regexes to search for lit-html usage.

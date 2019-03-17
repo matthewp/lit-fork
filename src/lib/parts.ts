@@ -22,6 +22,8 @@ import {noChange, nothing, Part} from './part.js';
 import {RenderOptions} from './render-options.js';
 import {TemplateInstance} from './template-instance.js';
 import {TemplateResult} from './template-result.js';
+import {HTMLTemplateResult} from './html-template-result.js';
+import {HTMLTemplateInstance} from './html-template-instance.js';
 import {createMarker} from './template.js';
 
 // https://tc39.github.io/ecma262/#sec-typeof-operator
@@ -148,6 +150,7 @@ export class NodePart implements Part {
   endNode!: Node;
   value: unknown = undefined;
   _pendingValue: unknown = undefined;
+  expr?: string
 
   constructor(options: RenderOptions) {
     this.options = options;
@@ -216,6 +219,8 @@ export class NodePart implements Part {
       }
     } else if (value instanceof TemplateResult) {
       this._commitTemplateResult(value);
+    } else if (value instanceof HTMLTemplateResult) {
+      this._commitHTMLTemplateResult(value);
     } else if (value instanceof Node) {
       this._commitNode(value);
     } else if (isIterable(value)) {
@@ -275,6 +280,17 @@ export class NodePart implements Part {
       this._commitNode(fragment);
       this.value = instance;
     }
+  }
+
+  private _commitHTMLTemplateResult(value: HTMLTemplateResult): void {
+    const template = value.template;
+    const instance = new HTMLTemplateInstance(template, value.processor);
+    const fragment = instance._clone();
+    instance.update(value.values);
+    this._commitNode(fragment);
+    this.value = instance;
+
+    //if()
   }
 
   private _commitIterable(value: Iterable<unknown>): void {

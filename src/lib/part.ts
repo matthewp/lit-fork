@@ -22,6 +22,7 @@
  */
 export interface Part {
   value: unknown;
+  expr?: string;
 
   /**
    * Sets the current part value, but does not write it to the DOM.

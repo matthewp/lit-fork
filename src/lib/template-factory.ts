@@ -17,6 +17,7 @@
  */
 
 import {TemplateResult} from './template-result.js';
+import {HTMLTemplateResult} from './html-template-result.js';
 import {marker, Template} from './template.js';
 
 /**
@@ -39,7 +40,7 @@ import {marker, Template} from './template.js';
  * to render() so that values are interpolated to the correct place in the
  * template instances.
  */
-export type TemplateFactory = (result: TemplateResult) => Template;
+export type TemplateFactory = (result: TemplateResult|HTMLTemplateResult) => Template;
 
 /**
  * The default TemplateFactory which caches Templates keyed on
